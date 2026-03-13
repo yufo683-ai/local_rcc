@@ -191,25 +191,47 @@ bool scan_for_addresses() {
 }
 
 void thread() {
-	attach_console(); std::println("Hello, world!");
+    attach_console(); 
+    std::println("Hello, world!");
+// i wrote this in vs code cuz im not familiar with github editor
+    if (!scan_for_addresses()) {
+        std::println(stderr, "[ERROR] Could not find all needed patterns. local_rcc must be updated.");
+        return;
+    }
 
-	if (!scan_for_addresses()) {
-		std::println(stderr, "[ERROR] Could not find all needed patterns. local_rcc must be updated.");
-		return;
-	}
-	std::println("Scanning finished.");
+    std::println("Scanning finished.");
+    std::println("Addresses found -> compile: {:p}, deserialize: {:p}, patch_addr: {:p}", 
+        (void*)compile, (void*)deserialize_item, (void*)type_for_property_mov_imm_address);
 
-	hooks::compile = safetyhook::create_inline(compile, compile_hook);
-	std::println("Hooked LuaVM::compile.");
+    auto compile_hook_result = safetyhook::create_inline(compile, compile_hook);
+    if (!compile_hook_result) {
+        std::println(stderr, "[ERROR] Failed to hook LuaVM::compile! Error type: {}", (int)compile_hook_result.error().type);
+    } else {
+        hooks::compile = std::move(compile_hook_result.value());
+        std::println("Successfully hooked LuaVM::compile.");
+    }
 
-	hooks::deserialize_item = safetyhook::create_inline(deserialize_item, deserialize_item_hook);
-	std::println("Hooked RBX::Network::Replicator::deserializeItem.");
+    
+    auto deserialize_hook_result = safetyhook::create_inline(deserialize_item, deserialize_item_hook);
+    if (!deserialize_hook_result) {
+        std::println(stderr, "[ERROR] Failed to hook deserializeItem! Error type: {}", (int)deserialize_hook_result.error().type);
+    } else {
+        hooks::deserialize_item = std::move(deserialize_hook_result.value());
+        std::println("Successfully hooked RBX::Network::Replicator::deserializeItem.");
+    }
 
-	patch_type_for_property();
-	std::println("Patched RBX::Network::NetworkSchema::typeForProperty.");
+   
+    if (type_for_property_mov_imm_address) {
+        patch_type_for_property();
+        std::println("Patched RBX::Network::NetworkSchema::typeForProperty.");
+    } else {
+        std::println(stderr, "[ERROR] Patch address is null, skipping patch.");
+    }
 
-	std::println("Made with <3 by 7ap & Epix @ https://github.com/rsblox - come join us!");
+    std::println("Initialization sequence complete.");
+    std::println("Made with <3 by 7ap & Epix @ and nitro boy");
 }
+
 
 BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
 	DisableThreadLibraryCalls(module);
