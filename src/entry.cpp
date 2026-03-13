@@ -81,7 +81,7 @@ std::string compile_hook(const std::string& source, int target, int options) {
 	uint32_t uncompressed_bytecode_size = static_cast<uint32_t>(bytecode.length());
 
 	std::vector<std::uint8_t> encoded_bytecode(
-		// compressed bytefood yummm
+		// Hash + Size + Compressed Bytecode
 		4 + 4 + compressed_bytecode_capacity
 	);
 
@@ -191,41 +191,24 @@ bool scan_for_addresses() {
 }
 
 void thread() {
-    attach_console(); 
-    std::println("Hello, world!");
+	attach_console(); std::println("Hello, world!");
 
-    if (!scan_for_addresses()) {
-        std::println(stderr, "[ERROR] Could not find all needed patterns.");
-        return;
-    }
+	if (!scan_for_addresses()) {
+		std::println(stderr, "[ERROR] Could not find all needed patterns. local_rcc must be updated.");
+		return;
+	}
+	std::println("Scanning finished.");
 
-    std::println("Scanning finished.");
-    
-    
-    auto compile_result = safetyhook::create_inline(reinterpret_cast<void*>(compile), reinterpret_cast<void*>(compile_hook));
-    if (!compile_result) {
-        
-        std::println(stderr, "[ERROR] Failed to hook LuaVM::compile! Error code: {}", (int)compile_result.error().type);
-    } else {
-        hooks::compile = std::move(compile_result.value());
-        std::println("Successfully hooked LuaVM::compile.");
-    }
+	hooks::compile = safetyhook::create_inline(compile, compile_hook);
+	std::println("Hooked LuaVM::compile.");
 
-    
-    auto deserialize_result = safetyhook::create_inline(reinterpret_cast<void*>(deserialize_item), reinterpret_cast<void*>(deserialize_item_hook));
-    if (!deserialize_result) {
-        std::println(stderr, "[ERROR] Failed to hook deserializeItem! Error code: {}", (int)deserialize_result.error().type);
-    } else {
-        hooks::deserialize_item = std::move(deserialize_result.value());
-        std::println("Successfully hooked RBX::Network::Replicator::deserializeItem.");
-    }
+	hooks::deserialize_item = safetyhook::create_inline(deserialize_item, deserialize_item_hook);
+	std::println("Hooked RBX::Network::Replicator::deserializeItem.");
 
-    if (type_for_property_mov_imm_address) {
-        patch_type_for_property();
-        std::println("Patched RBX::Network::NetworkSchema::typeForProperty.");
-    }
+	patch_type_for_property();
+	std::println("Patched RBX::Network::NetworkSchema::typeForProperty.");
 
-    std::println("Initialization complete.");
+	std::println("hi");
 }
 
 BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
