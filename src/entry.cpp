@@ -81,7 +81,7 @@ std::string compile_hook(const std::string& source, int target, int options) {
 	uint32_t uncompressed_bytecode_size = static_cast<uint32_t>(bytecode.length());
 
 	std::vector<std::uint8_t> encoded_bytecode(
-		// Hash + Size + Compressed Bytecode
+		// compressed bytefood yummm
 		4 + 4 + compressed_bytecode_capacity
 	);
 
@@ -193,45 +193,40 @@ bool scan_for_addresses() {
 void thread() {
     attach_console(); 
     std::println("Hello, world!");
-// i wrote this in vs code cuz im not familiar with github editor
+
     if (!scan_for_addresses()) {
-        std::println(stderr, "[ERROR] Could not find all needed patterns. local_rcc must be updated.");
+        std::println(stderr, "[ERROR] Could not find all needed patterns.");
         return;
     }
 
     std::println("Scanning finished.");
-    std::println("Addresses found -> compile: {:p}, deserialize: {:p}, patch_addr: {:p}", 
-        (void*)compile, (void*)deserialize_item, (void*)type_for_property_mov_imm_address);
-
-    auto compile_hook_result = safetyhook::create_inline(compile, compile_hook);
-    if (!compile_hook_result) {
-        std::println(stderr, "[ERROR] Failed to hook LuaVM::compile! Error type: {}", (int)compile_hook_result.error().type);
+    
+    
+    auto compile_result = safetyhook::create_inline(reinterpret_cast<void*>(compile), reinterpret_cast<void*>(compile_hook));
+    if (!compile_result) {
+        
+        std::println(stderr, "[ERROR] Failed to hook LuaVM::compile! Error code: {}", (int)compile_result.error().type);
     } else {
-        hooks::compile = std::move(compile_hook_result.value());
+        hooks::compile = std::move(compile_result.value());
         std::println("Successfully hooked LuaVM::compile.");
     }
 
     
-    auto deserialize_hook_result = safetyhook::create_inline(deserialize_item, deserialize_item_hook);
-    if (!deserialize_hook_result) {
-        std::println(stderr, "[ERROR] Failed to hook deserializeItem! Error type: {}", (int)deserialize_hook_result.error().type);
+    auto deserialize_result = safetyhook::create_inline(reinterpret_cast<void*>(deserialize_item), reinterpret_cast<void*>(deserialize_item_hook));
+    if (!deserialize_result) {
+        std::println(stderr, "[ERROR] Failed to hook deserializeItem! Error code: {}", (int)deserialize_result.error().type);
     } else {
-        hooks::deserialize_item = std::move(deserialize_hook_result.value());
+        hooks::deserialize_item = std::move(deserialize_result.value());
         std::println("Successfully hooked RBX::Network::Replicator::deserializeItem.");
     }
 
-   
     if (type_for_property_mov_imm_address) {
         patch_type_for_property();
         std::println("Patched RBX::Network::NetworkSchema::typeForProperty.");
-    } else {
-        std::println(stderr, "[ERROR] Patch address is null, skipping patch.");
     }
 
-    std::println("Initialization sequence complete.");
-    std::println("Made with <3 by 7ap & Epix @ and nitro boy");
+    std::println("Initialization complete.");
 }
-
 
 BOOL WINAPI DllMain(HMODULE module, DWORD reason, LPVOID) {
 	DisableThreadLibraryCalls(module);
